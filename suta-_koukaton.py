@@ -11,13 +11,16 @@ import pygame as pg
 if not pg.image.get_extended():
     raise SystemExit("Sorry, extended image module required")
 
-
 # game constants
 MAX_SHOTS = 10  # most player bullets onscreen
 MAX_BOMBS = 10
 SCREENRECT = pg.Rect(0, 0, 640, 480)
 PLAYER_SCORE = 0
 ALIEN_SCORE = 0
+MAX_ITEMS_ON_SCREEN = 4 #最大(n-1)つまで画面にitemを表示可能
+ITEM_SPAWN_INTERVAL = random.randint(10000, 15000)
+
+
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 
 
@@ -73,7 +76,7 @@ class Gauge(pg.sprite.Sprite):
         pg.draw.rect(self.image, self.fill_color, fill_rect)
         # 数字でゲージの量を表示する
         text = self.font.render(str(self.current_value), True, (255, 255, 255))
-        text_rect = text.get_rect(center=self.rect.center)
+        text_rect = text.get_rect(center=(self.rect.width // 2, self.rect.height // 2))
         self.image.blit(text, text_rect)
 
     def increase(self):
@@ -104,6 +107,12 @@ class Gauge(pg.sprite.Sprite):
         ゲージが8以上なら発射可能
         """
         return self.current_value >= 8
+    
+    def get_current_value(self):
+        """
+        現在のゲージの値を返す
+        """
+        return self.current_value
 
 
 class Player(pg.sprite.Sprite):
@@ -124,7 +133,7 @@ class Player(pg.sprite.Sprite):
         self.reloading = 0
         self.origtop = self.rect.top
         self.facing = -1
-        self.gauge = Gauge((10, SCREENRECT.height - 100), *groups)  # プレイヤーのゲージ
+        self.gauge = Gauge((0, SCREENRECT.height - 100), *groups)  # プレイヤーのゲージ
 
     def move(self, direction):
         if direction:
@@ -140,7 +149,6 @@ class Player(pg.sprite.Sprite):
         pos = self.facing * self.gun_offset + self.rect.centerx
         return pos, self.rect.top
    
-
 class Alien(pg.sprite.Sprite):
     """
     エイリアンのイニシャライザ
@@ -248,6 +256,12 @@ class Shot(pg.sprite.Sprite):
             all_sprites_group.add(shot)
         
 
+class Speed_shot(Shot):
+    speed = -15
+    def __init__(self, pos, angle=0, *groups):#shotクラスを継承するだけでよさそう
+        super().__init__(pos, angle, *groups)
+        
+
 class Bomb(pg.sprite.Sprite):
     """
     Alienが落とす爆弾を生成するクラス
@@ -259,8 +273,11 @@ class Bomb(pg.sprite.Sprite):
     def __init__(self, alien_pos, bomb_angle=0, *groups):
         pg.sprite.Sprite.__init__(self, *groups)
         self.image = self.images[0]
+        self.image.set_colorkey((255, 255, 255))  # 背景を透明に設定
         self.rect = self.image.get_rect(midtop=alien_pos)
         self.bomb_angle = bomb_angle
+        self.mask = pg.mask.from_surface(self.image)  # マスクを作成して透明部分を除外
+        
     def update(self):
         """
         - make an explosion.
@@ -369,6 +386,7 @@ class Item(pg.sprite.Sprite):
         self.image = pg.transform.scale(self.images[0], (64, 48))  # 画像サイズを変更
         self.image.set_colorkey((255, 255, 255))  # 背景を透明に設定
         self.rect = self.image.get_rect(center=SCREENRECT.center)  # 矩形を取得
+        self.mask = pg.mask.from_surface(self.image)  # マスクを作成して透明部分を除外
         self.rect.topleft = (-100, -100)  # 初期位置を画面外に設定
         self.spawned = False  # アイテムが生成されたかどうかのフラグ
 
@@ -378,21 +396,28 @@ class Item(pg.sprite.Sprite):
         """
         if self.spawned:
             self.rect.move_ip(self.speed, 0)  # アイテムを移動
+            if self.rect.right > SCREENRECT.right:
+                self.rect.right = SCREENRECT.right  # 右端に合わせる
+                self.speed = -self.speed  # 移動方向を反転
+            if self.rect.left < 0:
+                self.rect.left = 0  # 左端に合わせる
+                self.speed = -self.speed  # 移動方向を反転
             if self.rect.top > SCREENRECT.height:
                 self.kill()  # 画面外に出たらアイテムを消す
-                print("killed update")
                 self.spawned = False  # フラグをリセット
                 
-            if self.rect.right >= SCREENRECT.right or self.rect.left <= 0:
-                self.speed = -self.speed  # 画面端に当たったら移動方向を反転
-
     def spawn(self) -> None:
         """
-        アイテムを画面の中央に生成する。
+        アイテムを画面の左右にランダムで生成する。
         """
-        if not self.spawned:
-            self.rect.center = SCREENRECT.center  # アイテムを中央に移動
-            self.spawned = True  # フラグを設定
+        side = random.choice(['left', 'right'])
+        if side == 'left':
+            self.rect.topleft = (0, random.randint(200, 280))
+            self.speed = abs(self.speed)  # Move to the right
+        else:
+            self.rect.topright = (SCREENRECT.width, random.randint(200, 280))
+            self.speed = -abs(self.speed)  # Move to the left
+        self.spawned = True
 
     def is_spawned(self) -> bool:
         """
@@ -409,12 +434,11 @@ class Item(pg.sprite.Sprite):
         """
         global ALIEN_SCORE
         if self.spawned:
-            collided = pg.sprite.spritecollide(self, bombs, True)  # 衝突を確認
+            collided = pg.sprite.spritecollide(self, bombs, True, pg.sprite.collide_mask)  # マスクを使用した衝突を確認
             if collided:
                 self.kill()  # 衝突したらアイテムを消す
                 ALIEN_SCORE += 1
                 Alien.speed += 0.3
-                print("killed bomb")
                 self.spawned = False  # フラグをリセット
                 self.rect.topleft = (-100, -100)  # 初期位置にリセット
                 return True
@@ -428,13 +452,11 @@ class Item(pg.sprite.Sprite):
         """
         global PLAYER_SCORE
         if self.spawned:
-            collided = pg.sprite.spritecollide(self, shots, True)
+            collided = pg.sprite.spritecollide(self, shots, True, pg.sprite.collide_mask)  # マスクを使用した衝突を確認
             if collided:
                 self.kill()
                 PLAYER_SCORE += 1
                 Player.speed += 0.3
-                print(Player.speed)
-                print("killed shot")
                 self.spawned = False  # 衝突したらフラグをリセット
                 self.rect.topleft = (-100, -100)  # 画面外の初期位置にリセット
                 return True
@@ -544,11 +566,8 @@ def main(winstyle=0):
     if pg.font:
         all.add(PlayerScore(all))
         all.add(AlienScore(all))
-
-    item_spawn_time = 50#random.randint(300, 600)  # 初回のアイテム出現時間をランダムに設定 (5秒から10秒）
-    item_timer = 0
-    item_spawned = False
-
+    
+    item_timer = pg.time.get_ticks()
     clock = pg.time.Clock()
 
     while player.alive() and alien.alive():
@@ -582,8 +601,8 @@ def main(winstyle=0):
         direction = keystate[pg.K_RIGHT] - keystate[pg.K_LEFT]
         player.move(direction)
 
-        player.gauge.update()
         player.gauge.increase()
+        player.update()
         
         #pleyerのshotに関しての情報
         player_firing = keystate[pg.K_RETURN]
@@ -639,7 +658,7 @@ def main(winstyle=0):
             alien.gauge.current_value -= 8
         alien.reloading = alien_firing
 
-        for shot in pg.sprite.spritecollide(alien, shots, 1):
+        for shot in pg.sprite.spritecollide(alien, shots, 1, pg.sprite.collide_mask):
             Explosion(shot, all)
             Explosion(alien, all)
             if pg.mixer and boom_sound is not None:
@@ -673,31 +692,18 @@ def main(winstyle=0):
         # draw the scene
         dirty = all.draw(screen)
         pg.display.update(dirty)
-        item_timer += 1# アイテム生成タイマーを更新
-        if not item_spawned and item_timer >= item_spawn_time:
-            print("spawn")
-            
-            item.spawn()  # アイテムを生成
-            item_spawned = True
-
-        # アイテムが爆弾と衝突したかを確認
-        if item.collide_bombs(bombs):
-            print("collide")
-            background.blit(bgdtile, (0, 0))
-            screen.blit(background, (0, 0))
-            item_timer = 0
-            item_spawn_time = 50 #random.randint(300, 600)  # 新しいアイテム出現時間を設定
-            item = Item(items, all)  # アイテムを初期化し再度作成
-            item_spawned = False
         
-        if item.collide_shots(shots):
-            print("collide")
-            background.blit(bgdtile, (0, 0))
-            screen.blit(background, (0, 0))
-            item_timer = 0
-            item_spawn_time = 50#random.randint(300, 600)  # 新しいアイテム出現時間を設定
-            item = Item(items, all)  # アイテムを初期化し再度作成
-            item_spawned = False
+        current_time = pg.time.get_ticks()
+        if len(items) < MAX_ITEMS_ON_SCREEN and current_time - item_timer > ITEM_SPAWN_INTERVAL:
+            new_item = Item(items, all)
+            new_item.spawn()
+            item_timer = current_time
+        
+        for item in items:
+            if item.collide_bombs(bombs) or item.collide_shots(shots):
+                item.kill()
+                background.blit(bgdtile, (0, 0))
+                screen.blit(background, (0, 0))
         
         pg.display.update(all.draw(screen))        
         clock.tick(40)
