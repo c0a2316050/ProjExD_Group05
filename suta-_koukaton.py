@@ -82,10 +82,10 @@ class Gauge(pg.sprite.Sprite):
 
     def increase(self):
         """
-        2秒ごとにゲージを2増やす
+        3秒ごとにゲージを1増やす
         """
         now = pg.time.get_ticks()
-        if now - self.last_update > 2000:  # 2秒経過したら
+        if now - self.last_update > 3000:  # 2秒経過したら
             self.last_update = now
             self.current_value += 1
             if self.current_value > self.capacity:
