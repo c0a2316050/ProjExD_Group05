@@ -18,7 +18,7 @@ SCREENRECT = pg.Rect(0, 0, 640, 480)
 PLAYER_SCORE = 0
 ALIEN_SCORE = 0
 MAX_ITEMS_ON_SCREEN = 4 #最大(n-1)つまで画面にitemを表示可能
-ITEM_SPAWN_INTERVAL = random.randint(5000, 20000)
+ITEM_SPAWN_INTERVAL = random.randint(5000, 15000)
 
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
@@ -411,11 +411,10 @@ class Item(pg.sprite.Sprite):
         side = random.choice(['left', 'right'])
         if side == 'left':
             self.rect.topleft = (0, random.randint(200, 280))
-            self.speed = abs(self.speed)  # Move to the right
-            
+            self.speed = abs(self.speed) #右に方向転換
         else:
             self.rect.topright = (SCREENRECT.width, random.randint(200, 280))
-            self.speed = -abs(self.speed)  # Move to the left
+            self.speed = -abs(self.speed) #左に方向転換
         self.spawned = True
 
     def is_spawned(self) -> bool:
@@ -518,6 +517,7 @@ def main(winstyle=0):
 
     # Load images, assign to sprite classes
     img = load_image("3.png")
+    img.set_colorkey(0, 0)
     Player.images = [img, pg.transform.flip(img, 1, 0)]
     img = load_image("explosion1.gif")
     Explosion.images = [img, pg.transform.flip(img, 1, 1)]
@@ -526,9 +526,9 @@ def main(winstyle=0):
     Shot.images = [load_image("shot.gif")]
     Item.images = [load_image("item.png")]  # アイテム画像を読み込む
 
-    icon = pg.transform.scale(Alien.images[0], (32, 32))
+    icon = pg.transform.scale(Player.images[0], (22, 32))
     pg.display.set_icon(icon)
-    pg.display.set_caption("Pygame Aliens")
+    pg.display.set_caption("こうかとんスターシュート")
     pg.mouse.set_visible(0)
 
     bgdtile = load_image("utyuu.jpg")
@@ -536,10 +536,14 @@ def main(winstyle=0):
     background.blit(bgdtile, (0, 0))
     screen.blit(background, (0, 0))
     pg.display.flip()
-
+    
+    #ゲーム内効果音
     boom_sound = load_sound("enemy-attack.wav")
     shoot_sound = load_sound("fire-sword.wav")
     explosion_sound = load_sound("Explosion.wav")
+    item_sound = load_sound("item_get.mp3")
+    beem_sound = load_sound("beem.sound.mp3")
+    bomb_special = load_sound("bomb_special.mp3")
     
     if pg.mixer:
         music = os.path.join(main_dir, "data", "game_music.mp3")
@@ -622,7 +626,7 @@ def main(winstyle=0):
         elif not player.reloading and player_shot_speed and len(shots) < MAX_SHOTS and PLAYER_SCORE >= 4 and player.gauge.speed_can_fire():#speed_shotが打てるようになる
             shot = Speed_shot(player.gunpos(), 0, shots, all)
             if pg.mixer and shoot_sound is not None:
-                shoot_sound.play()
+                beem_sound.play()
             player.gauge.current_value -= 8
         player.reloading = player_firing
 
@@ -649,7 +653,7 @@ def main(winstyle=0):
         elif not alien.reloading and alien_shot_speed and len(bombs) < MAX_BOMBS and ALIEN_SCORE >= 4 and alien.gauge.speed_can_fire():#speed_shotが打てるようになる
             bomb = Speed_bomb(alien.gunpos(), 0, bombs, all)
             if pg.mixer and boom_sound is not None:
-                boom_sound.play()
+                bomb_special.play()
             alien.gauge.current_value -= 8
         alien.reloading = alien_firing
 
@@ -696,6 +700,7 @@ def main(winstyle=0):
         for item in items:
             if item.collide_bombs(bombs) or item.collide_shots(shots):
                 item.kill()
+                item_sound.play()
                 background.blit(bgdtile, (0, 0))
                 screen.blit(background, (0, 0))
         
