@@ -15,8 +15,8 @@ if not pg.image.get_extended():
 MAX_SHOTS = 10  # most player bullets onscreen
 MAX_BOMBS = 10
 SCREENRECT = pg.Rect(0, 0, 640, 480)
-PLAYER_SCORE = 10
-ALIEN_SCORE = 10
+PLAYER_SCORE = 0
+ALIEN_SCORE = 0
 MAX_ITEMS_ON_SCREEN = 4 #最大(n-1)つまで画面にitemを表示可能
 ITEM_SPAWN_INTERVAL = random.randint(5000, 20000)
 
@@ -46,6 +46,7 @@ def load_sound(file):
         print(f"Warning, unable to load, {file}")
     return None
 
+
 class Gauge(pg.sprite.Sprite):
     """
     ゲージを管理して表示するクラス
@@ -58,7 +59,7 @@ class Gauge(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.topleft = position
         self.capacity = 10  # ゲージの最大容量
-        self.current_value = 10  # 現在のゲージの量
+        self.current_value = 0  # 現在のゲージの量
         self.fill_color = (0, 255, 0)  # ゲージの満タン時の色
         self.empty_color = (255, 0, 0)  # ゲージの空の時の色
         self.last_update = pg.time.get_ticks()  # 前回ゲージが更新された時間
@@ -156,7 +157,7 @@ class Alien(pg.sprite.Sprite):
     銃の発射位置メソッド
     エイリアンの位置更新メソッドを生成しているクラス
     """
-    
+
     speed = 1
     gun_offset = 0
     images: List[pg.Surface] = []
@@ -307,20 +308,6 @@ class Speed_bomb(Bomb):
     speed = 15
     def __init__(self, pos, *groups):
         super().__init__(pos, *groups)
-
-# class WavyShot(pg.sprite.Sprite):
-#     # Player_speed = -10
-#     # Alien_speed = 10
-#     # amplitude = 100
-#     # frequency = 2
-#     images: List[pg.Surface] = []
-
-#     def __init__(self, pos, is_player, *groups):
-#         pg.sprite.Sprite.__init__(self, *groups)
-#         self.image = self.images[0]
-#         self.rect = self.image.get_rect(midbottom=pos) if is_player else self.image.get_rect(midtop=pos)
-#         self.speed = self.Player_speed if is_player else self.Alien_speed
-#         self.time = 10
 
         
 class PlayerScore(pg.sprite.Sprite):
@@ -550,10 +537,12 @@ def main(winstyle=0):
     screen.blit(background, (0, 0))
     pg.display.flip()
 
-    boom_sound = load_sound("boom.wav")
-    shoot_sound = load_sound("car_door.wav")
+    boom_sound = load_sound("enemy-attack.wav")
+    shoot_sound = load_sound("fire-sword.wav")
+    explosion_sound = load_sound("Explosion.wav")
+    
     if pg.mixer:
-        music = os.path.join(main_dir, "data", "house_lo.wav")
+        music = os.path.join(main_dir, "data", "game_music.mp3")
         pg.mixer.music.load(music)
         pg.mixer.music.play(-1)
 
@@ -650,7 +639,7 @@ def main(winstyle=0):
         if not alien.reloading and alien_firing and len(bombs) < MAX_BOMBS and alien.gauge.can_fire():
             bomb = Bomb(alien.gunpos(), 0, bombs, all)
             if pg.mixer and shoot_sound is not None:
-                shoot_sound.play()
+                boom_sound.play()
             alien.gauge.current_value -= 2
         elif not alien.reloading and alien_spread and len(bombs) < MAX_BOMBS and ALIEN_SCORE >= 2 and alien.gauge.spread_can_fire():#spread_shotが打てるようになる
             bomb = Bomb.spread_bomb(alien.gunpos(), bombs, all, spread=15, count=3)
@@ -668,9 +657,8 @@ def main(winstyle=0):
             Explosion(shot, all)
             Explosion(alien, all)
             if pg.mixer and boom_sound is not None:
-                boom_sound.play()
-            # pg.time.wait(3000)
-            # 数秒爆発する演出を出してから勝利画面を表示させる。
+                explosion_sound.play()
+                pg.mixer.music.stop()
             all.add(Win("Player"))
             all.draw(screen)
             pg.display.flip()
@@ -682,9 +670,9 @@ def main(winstyle=0):
             Explosion(bomb, all)
             Explosion(player, all)
             if pg.mixer and boom_sound is not None:
-                boom_sound.play()
+                explosion_sound.play()
+                pg.mixer.music.stop()
             player.kill()
-
             # Display win screen for alien
             all.add(Win("Alien"))
             all.draw(screen)
@@ -716,6 +704,7 @@ def main(winstyle=0):
     if pg.mixer:
         pg.mixer.music.fadeout(1000)
     pg.time.wait(1000)
+
 
 if __name__ == "__main__":
     main()
