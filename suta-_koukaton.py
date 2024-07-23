@@ -476,22 +476,17 @@ class Win(pg.sprite.Sprite):
     ・エイリアンがプレイヤーに爆弾を当てた際に画像と文字を呼び出す。
     """
     def __init__(self, winner, *groups):
-        pg.sprite.Sprite.__init__(self, *groups)
-        self.image = pg.Surface(SCREENRECT.size)
-        # self.image.fill("black")
+        pg.sprite.Sprite.__init__(self, *groups) # スプライトの初期化
+        self.image = pg.Surface(SCREENRECT.size) # 画面全体の大きさのSurfaceを作成
+        self.image.fill("black")# 黒で塗りつぶす
         
-        if winner == "Player":
-            win_image = load_image("player_win.png")
-        else:
-            win_image = load_image("alien_win.png")
+        if winner == "Player":# もしプレイヤーが勝ったら
+            win_image = load_image("player_win.png")# プレイヤー勝利の画像を
+        else:# エイリアンが勝ったら
+            win_image = load_image("alien_win.png")# エイリアン勝利の画像を
+        win_image = pg.transform.scale(win_image, (SCREENRECT.width // 2, SCREENRECT.height // 4))# 画像を指定サイズにリサイズ
         
-        # この画像を小さくリサイズする
-        win_image = pg.transform.scale(win_image, (SCREENRECT.width / 2, SCREENRECT.height / 2))
-        
-        # 勝利画像を黒い背景にブリットする
-        win_image_rect = win_image.get_rect(center=(SCREENRECT.centerx, SCREENRECT.centery - 50))
-        self.image.blit(win_image, win_image_rect)
-        
+
         # 勝利テキストを描画する
         self.font = pg.font.Font(None, 80)
         self.color = "white"
@@ -500,7 +495,13 @@ class Win(pg.sprite.Sprite):
         text_rect = text_surface.get_rect(center=(SCREENRECT.centerx, SCREENRECT.centery + 100))
         self.image.blit(text_surface, text_rect)
         
-        self.rect = self.image.get_rect()
+        self.font = pg.font.Font(None, 50)# フォントを初期化、サイズ50
+        self.color = "white"# テキストの色を白に設定
+        win_text = f"{winner} Wins!"# 勝者のテキストを設定
+        text_surface = self.font.render(win_text, True, self.color)# テキストを描画するSurfaceを作成
+        text_rect = text_surface.get_rect(center=(SCREENRECT.centerx, SCREENRECT.centery + 100))# テキストの位置を設定
+        self.image.blit(text_surface, text_rect)# 背景にテキストをブリット
+        self.rect = self.image.get_rect()# スプライトの矩形を設定
 
 
 def main(winstyle=0):
@@ -681,11 +682,11 @@ def main(winstyle=0):
             if pg.mixer and boom_sound is not None:
                 explosion_sound.play()
                 pg.mixer.music.stop()
-            all.add(Win("Player"))
-            all.draw(screen)
-            pg.display.flip()
-            pg.time.wait(5000)
-            alien.kill()
+            all.add(Win("Player"))# winクラスのインスタンスを作成、allスプライトに追加
+            all.draw(screen)# 画面に描画
+            pg.display.flip()# Pygameのディスプレイを更新
+            pg.time.wait(5000)# 5秒間待機
+            alien.kill()# エイリアンのスプライトを削除
             return
 
         for bomb in pg.sprite.spritecollide(player, bombs, 1):
@@ -696,10 +697,10 @@ def main(winstyle=0):
                 pg.mixer.music.stop()
             player.kill()
             # Display win screen for alien
-            all.add(Win("Alien"))
-            all.draw(screen)
-            pg.display.flip()
-            pg.time.wait(5000)
+            all.add(Win("Alien"))# winクラスのインスタンスを作成、allスプライトに追加
+            all.draw(screen)# 画面に描画
+            pg.display.flip()# Pygameのディスプレイを更新
+            pg.time.wait(5000)# 5秒間待機
             return
         
         all.add(player.gauge)  # プレイヤーのゲージを毎フレーム追加する

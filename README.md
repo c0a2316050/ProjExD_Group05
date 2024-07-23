@@ -46,5 +46,6 @@
 - [ ] get closer():時間が経過するたびにプレイヤーとエイリアンの距離を近づかせる。
 - [ ] select():キャラクターを多く実装し、キャラクター実装画面の実装
 ### メモ
-* 
+* ![image](https://github.com/user-attachments/assets/5ea7a4dc-af0c-49ab-a09a-e37af55f42e1)
+
 * 
