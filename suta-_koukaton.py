@@ -82,10 +82,10 @@ class Gauge(pg.sprite.Sprite):
 
     def increase(self):
         """
-        3秒ごとにゲージを1増やす
+        2秒ごとにゲージを1増やす
         """
         now = pg.time.get_ticks()
-        if now - self.last_update > 3000:  # 2秒経過したら
+        if now - self.last_update > 2000:  # 2秒経過したら
             self.last_update = now
             self.current_value += 1
             if self.current_value > self.capacity:
@@ -101,7 +101,7 @@ class Gauge(pg.sprite.Sprite):
         """
         ゲージが4以上なら発射可能
         """
-        return self.current_value >= 4
+        return self.current_value >= 6
     
     def speed_can_fire(self):
         """
@@ -230,19 +230,14 @@ class Shot(pg.sprite.Sprite):
     speed = -3
     images: List[pg.Surface] = []
 
-    def __init__(self, pos, angle=0, *groups):
+    def __init__(self, pos, angle, *groups):
         pg.sprite.Sprite.__init__(self, *groups)
         self.image = self.images[0]
-        self.image.set_colorkey((255, 255, 255))  # 背景を透明に設定
         self.rect = self.image.get_rect(midbottom=pos)
         self.mask = pg.mask.from_surface(self.image)  # マスクを作成して透明部分を除外
         self.angle = angle
-        
-    def __init__(self, pos, angle=0, *groups):
-        pg.sprite.Sprite.__init__(self, *groups)
-        self.image = self.images[0]
-        self.rect = self.image.get_rect(midbottom=pos)
-        self.angle = angle
+        self.dx = 0
+        self.dy = 0
 
     def update(self):
         """
@@ -250,19 +245,24 @@ class Shot(pg.sprite.Sprite):
 
         Every tick we move the shot upwards.
         """
-        dx = self.speed * math.sin(math.radians(self.angle))
-        dy = self.speed * math.cos(math.radians(self.angle))
-        self.rect.move_ip(dx, dy)
+        # self.dx = self.speed * math.sin(math.radians(self.angle))
+        self.dy = self.speed * math.cos(math.radians(self.angle))
+    
+        # self.rect.center = self.rect.centerx + dx, self.rect.centery + dy
+        self.rect.move_ip(self.dx, self.dy)
+        
         if self.rect.top <= 0 or self.rect.left <= 0 or self.rect.right >= SCREENRECT.width or self.rect.bottom >= SCREENRECT.height:
             self.kill()
-    
+            
     def spread_shot(pos, shots_group, all_sprites_group, spread=5, count=3):
         start_angle = -spread * (count - 1) / 2
         for i in range(count):
             angle = start_angle + spread * i
-            shot = Shot(pos, angle)
-            shots_group.add(shot)
-            all_sprites_group.add(shot)
+            print(angle)
+            # shot = Shot(pos, angle, shots_group, all_sprites_group)
+            # shots_group.add(shot)
+            # all_sprites_group.add(shot)
+
 
 class Speed_shot(Shot):
     speed = -15
@@ -283,15 +283,17 @@ class Bomb(pg.sprite.Sprite):
         self.image = self.images[0]
         self.rect = self.image.get_rect(midtop=alien_pos)
         self.bomb_angle = bomb_angle
+        self.dx = 0
+        self.dy = 0
         
     def update(self):
         """
         - make an explosion.
         - remove the Bomb.
         """
-        dx = self.speed * math.sin(math.radians(self.bomb_angle))
-        dy = self.speed * math.cos(math.radians(self.bomb_angle))
-        self.rect.move_ip(dx, dy)
+        # dx = self.speed * math.sin(math.radians(self.bomb_angle))
+        self.dy = self.speed * math.cos(math.radians(self.bomb_angle))
+        self.rect.move_ip(self.dx, self.dy)
         if self.rect.top <= 0 or self.rect.left <= 0 or self.rect.right >= SCREENRECT.width or self.rect.bottom >= SCREENRECT.height:
             self.kill()
     
@@ -318,7 +320,7 @@ class PlayerScore(pg.sprite.Sprite):
     def __init__(self, *groups):
         pg.sprite.Sprite.__init__(self, *groups)
         self.font = pg.font.Font(None, 20)
-        self.font.set_italic(1)
+        self.font.set_italic(16)
         self.color ="white"
         self.lastscore = -1
         self.update()
@@ -482,11 +484,16 @@ class Win(pg.sprite.Sprite):
             win_image = load_image("player_win.png")# プレイヤー勝利の画像を
         else:# エイリアンが勝ったら
             win_image = load_image("alien_win.png")# エイリアン勝利の画像を
-        
         win_image = pg.transform.scale(win_image, (SCREENRECT.width // 2, SCREENRECT.height // 4))# 画像を指定サイズにリサイズ
         
-        win_image_rect = win_image.get_rect(center=(SCREENRECT.centerx, SCREENRECT.centery - 50))# 画像の位置を設定
-        self.image.blit(win_image, win_image_rect) # 背景に画像をブリット
+
+        # 勝利テキストを描画する
+        self.font = pg.font.Font(None, 80)
+        self.color = "white"
+        win_text = f"{winner} Wins!"
+        text_surface = self.font.render(win_text, True, self.color)
+        text_rect = text_surface.get_rect(center=(SCREENRECT.centerx, SCREENRECT.centery + 100))
+        self.image.blit(text_surface, text_rect)
         
         self.font = pg.font.Font(None, 50)# フォントを初期化、サイズ50
         self.color = "white"# テキストの色を白に設定
@@ -537,7 +544,7 @@ def main(winstyle=0):
     boom_sound = load_sound("enemy-attack.wav")
     shoot_sound = load_sound("fire-sword.wav")
     explosion_sound = load_sound("Explosion.wav")
-    item_sound = load_sound("item_get.mp3")
+    item_sound = load_sound("power_up.mp3")
     beem_sound = load_sound("beem.sound.mp3")
     bomb_special = load_sound("bomb_special.mp3")
     
@@ -546,9 +553,6 @@ def main(winstyle=0):
         pg.mixer.music.load(music)
         pg.mixer.music.play(-1)
 
-    player = pg.sprite.Group()
-    # players = pg.sprite.Group()
-    aliens = pg.sprite.Group()
     shots = pg.sprite.Group()
     bombs = pg.sprite.Group()
     items = pg.sprite.Group()
@@ -556,12 +560,11 @@ def main(winstyle=0):
 
     global PLAYER_SCORE, ALIEN_SCORE
     player = Player(all)
-    alien = Alien(aliens, all)
+    alien = Alien(all)
     
     all.add(player.gauge)  # プレイヤーのゲージを追加
     all.add(alien.gauge)  # エイリアンのゲージを追加
 
-    aliens.add(alien)
     item = Item(items, all)  # アイテムを初期化し追加
 
     if pg.font:
@@ -580,7 +583,7 @@ def main(winstyle=0):
             if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                 return
             if event.type == pg.KEYDOWN:
-                if event.key == pg.K_f:
+                if event.key == pg.K_h:
                     if not fullscreen:
                         print("Changing to FULLSCREEN")
                         screen_backup = screen.copy()
@@ -610,15 +613,24 @@ def main(winstyle=0):
         player_spread = keystate[pg.K_l]
         player_shot_speed = keystate[pg.K_k]
         if not player.reloading and player_firing and len(shots) < MAX_SHOTS and player.gauge.can_fire():
-            shot = Shot(player.gunpos(), 0, shots, all)
+            shot = Shot(player.gunpos(), 0,  shots, all)
             if pg.mixer and shoot_sound is not None:
                 shoot_sound.play()
             player.gauge.current_value -= 2
         elif not player.reloading and player_spread and len(shots) < MAX_SHOTS and PLAYER_SCORE >= 2 and player.gauge.spread_can_fire():#spread_shotが打てるようになる
-            shot = Shot.spread_shot(player.gunpos(), shots, all, spread=15, count=3)
+            # shot = Shot.spread_shot(player.gunpos(), shots, all, spread=5, count=3)
+            shot_list = [Shot(player.gunpos(), 0,  shots, all) for i in range(3)]
+            dxs = [-1, 0, 1]
+            spread = 5
+            count = 3
+            start_angle = -spread * (count - 1) / 2
+            for i in range(count):
+                # shot_list[i].angle = start_angle + spread * i
+                shot_list[i].dx = dxs[i]
+            
             if pg.mixer and shoot_sound is not None:
                 shoot_sound.play()
-            player.gauge.current_value -= 4
+            player.gauge.current_value -= 6
         elif not player.reloading and player_shot_speed and len(shots) < MAX_SHOTS and PLAYER_SCORE >= 4 and player.gauge.speed_can_fire():#speed_shotが打てるようになる
             shot = Speed_shot(player.gunpos(), 0, shots, all)
             if pg.mixer and shoot_sound is not None:
@@ -642,10 +654,21 @@ def main(winstyle=0):
                 boom_sound.play()
             alien.gauge.current_value -= 2
         elif not alien.reloading and alien_spread and len(bombs) < MAX_BOMBS and ALIEN_SCORE >= 2 and alien.gauge.spread_can_fire():#spread_shotが打てるようになる
-            bomb = Bomb.spread_bomb(alien.gunpos(), bombs, all, spread=15, count=3)
+            # bomb = Bomb.spread_bomb(alien.gunpos(), bombs, all, spread=5, count=3)
+            # shot = Shot.spread_shot(player.gunpos(), shots, all, spread=5, count=3)
+            bomb_list = [Bomb(alien.gunpos(), 0,  bombs, all) for i in range(3)]
+            dxs = [-1, 0, 1]
+            spread = 3
+            count = 3
+            start_angle = -spread * (count - 1) / 2
+            for i in range(count):
+                bomb_list[i].angle = start_angle + spread * i
+                bomb_list[i].dx = dxs[i]
+                print(bomb_list[i].angle)
+                
             if pg.mixer and boom_sound is not None:
                 boom_sound.play()
-            alien.gauge.current_value -= 4
+            alien.gauge.current_value -= 6
         elif not alien.reloading and alien_shot_speed and len(bombs) < MAX_BOMBS and ALIEN_SCORE >= 4 and alien.gauge.speed_can_fire():#speed_shotが打てるようになる
             bomb = Speed_bomb(alien.gunpos(), 0, bombs, all)
             if pg.mixer and boom_sound is not None:
@@ -694,7 +717,14 @@ def main(winstyle=0):
             item_timer = current_time
         
         for item in items:
-            if item.collide_bombs(bombs) or item.collide_shots(shots):
+            if item.collide_bombs(bombs):
+                alien.gauge.current_value += 1
+                item.kill()
+                item_sound.play()
+                background.blit(bgdtile, (0, 0))
+                screen.blit(background, (0, 0))
+            elif item.collide_shots(shots):
+                player.gauge.current_value += 1
                 item.kill()
                 item_sound.play()
                 background.blit(bgdtile, (0, 0))
