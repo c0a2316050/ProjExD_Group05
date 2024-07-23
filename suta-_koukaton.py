@@ -99,7 +99,7 @@ class Gauge(pg.sprite.Sprite):
     
     def spread_can_fire(self):
         """
-        ゲージが4以上なら発射可能
+        ゲージが6以上なら発射可能
         """
         return self.current_value >= 6
     
@@ -476,18 +476,23 @@ class Win(pg.sprite.Sprite):
     ・エイリアンがプレイヤーに爆弾を当てた際に画像と文字を呼び出す。
     """
     def __init__(self, winner, *groups):
-        pg.sprite.Sprite.__init__(self, *groups) # スプライトの初期化
-        self.image = pg.Surface(SCREENRECT.size) # 画面全体の大きさのSurfaceを作成
-        self.image.fill("black")# 黒で塗りつぶす
+        pg.sprite.Sprite.__init__(self, *groups)
+        self.image = pg.Surface(SCREENRECT.size)
+        self.image.fill("black")
         
-        if winner == "Player":# もしプレイヤーが勝ったら
-            win_image = load_image("player_win.png")# プレイヤー勝利の画像を
-        else:# エイリアンが勝ったら
-            win_image = load_image("alien_win.png")# エイリアン勝利の画像を
-        win_image = pg.transform.scale(win_image, (SCREENRECT.width // 2, SCREENRECT.height // 4))# 画像を指定サイズにリサイズ
+        if winner == "Player":
+            win_image = load_image("player_win.png")
+        else:
+            win_image = load_image("alien_win.png")
         
-
-        # 勝利テキストを描画する
+        # Resize the image to be smaller
+        win_image = pg.transform.scale(win_image, (SCREENRECT.width / 2, SCREENRECT.height / 2))
+        
+        # Blit the win image onto the black background
+        win_image_rect = win_image.get_rect(center=(SCREENRECT.centerx, SCREENRECT.centery - 50))
+        self.image.blit(win_image, win_image_rect)
+        
+        # Render the win text
         self.font = pg.font.Font(None, 80)
         self.color = "white"
         win_text = f"{winner} Wins!"
@@ -495,15 +500,7 @@ class Win(pg.sprite.Sprite):
         text_rect = text_surface.get_rect(center=(SCREENRECT.centerx, SCREENRECT.centery + 100))
         self.image.blit(text_surface, text_rect)
         
-        self.font = pg.font.Font(None, 50)# フォントを初期化、サイズ50
-        self.color = "white"# テキストの色を白に設定
-        win_text = f"{winner} Wins!"# 勝者のテキストを設定
-        text_surface = self.font.render(win_text, True, self.color)# テキストを描画するSurfaceを作成
-        text_rect = text_surface.get_rect(center=(SCREENRECT.centerx, SCREENRECT.centery + 100))# テキストの位置を設定
-        self.image.blit(text_surface, text_rect)# 背景にテキストをブリット
-        self.rect = self.image.get_rect()# スプライトの矩形を設定
-
-
+        self.rect = self.image.get_rect()
 def main(winstyle=0):
     # Initialize pygame
     if pg.get_sdl_version()[0] == 2:
@@ -618,7 +615,6 @@ def main(winstyle=0):
                 shoot_sound.play()
             player.gauge.current_value -= 2
         elif not player.reloading and player_spread and len(shots) < MAX_SHOTS and PLAYER_SCORE >= 2 and player.gauge.spread_can_fire():#spread_shotが打てるようになる
-            # shot = Shot.spread_shot(player.gunpos(), shots, all, spread=5, count=3)
             shot_list = [Shot(player.gunpos(), 0,  shots, all) for i in range(3)]
             dxs = [-1, 0, 1]
             spread = 5
@@ -654,8 +650,6 @@ def main(winstyle=0):
                 boom_sound.play()
             alien.gauge.current_value -= 2
         elif not alien.reloading and alien_spread and len(bombs) < MAX_BOMBS and ALIEN_SCORE >= 2 and alien.gauge.spread_can_fire():#spread_shotが打てるようになる
-            # bomb = Bomb.spread_bomb(alien.gunpos(), bombs, all, spread=5, count=3)
-            # shot = Shot.spread_shot(player.gunpos(), shots, all, spread=5, count=3)
             bomb_list = [Bomb(alien.gunpos(), 0,  bombs, all) for i in range(3)]
             dxs = [-1, 0, 1]
             spread = 3
@@ -682,11 +676,11 @@ def main(winstyle=0):
             if pg.mixer and boom_sound is not None:
                 explosion_sound.play()
                 pg.mixer.music.stop()
-            all.add(Win("Player"))# winクラスのインスタンスを作成、allスプライトに追加
-            all.draw(screen)# 画面に描画
-            pg.display.flip()# Pygameのディスプレイを更新
-            pg.time.wait(5000)# 5秒間待機
-            alien.kill()# エイリアンのスプライトを削除
+            all.add(Win("Player"))
+            all.draw(screen)
+            pg.display.flip()
+            pg.time.wait(5000)
+            alien.kill()
             return
 
         for bomb in pg.sprite.spritecollide(player, bombs, 1):
@@ -697,10 +691,10 @@ def main(winstyle=0):
                 pg.mixer.music.stop()
             player.kill()
             # Display win screen for alien
-            all.add(Win("Alien"))# winクラスのインスタンスを作成、allスプライトに追加
-            all.draw(screen)# 画面に描画
-            pg.display.flip()# Pygameのディスプレイを更新
-            pg.time.wait(5000)# 5秒間待機
+            all.add(Win("Alien"))
+            all.draw(screen)
+            pg.display.flip()
+            pg.time.wait(5000)
             return
         
         all.add(player.gauge)  # プレイヤーのゲージを毎フレーム追加する
